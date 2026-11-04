@@ -6,6 +6,7 @@
  */
 
 import { initProxy, proxyFetch } from '../lib/proxy.js';
+import { useSystemCa } from '../lib/system-ca.js';
 import { createServer, type Server as NetServer, type Socket } from 'net';
 import { unlink } from 'fs/promises';
 import { dirname } from 'path';
@@ -2166,6 +2167,10 @@ async function main(): Promise<void> {
 
   // Parse --insecure flag (skip TLS certificate verification)
   const insecure = args.includes('--insecure');
+
+  // Trust CAs from the OS trust store. The bridge is spawned without the CLI's
+  // execArgv, so a NODE_OPTIONS=--use-system-ca on the CLI does not reach it.
+  await useSystemCa();
 
   // Set up HTTP proxy from environment variables (HTTPS_PROXY, HTTP_PROXY, NO_PROXY, and lowercase variants)
   // Also handle --insecure flag to disable TLS certificate verification

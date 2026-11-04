@@ -13,12 +13,14 @@ Argument completions for prompts and resource templates, tasks on MCP 2026-07-28
 
 ### Added
 
-- New `login --client-name <name>` registers the OAuth client under a name other than `mcpc` with Dynamic Client Registration, for authorization servers that show or check `client_name`. It disables CIMD, since the hosted document sets its own name.
+- New `login --client-name <name>` registers the OAuth client under a name other than `mcpc` with Dynamic Client Registration, for authorization servers that show or check `client_name`.
 - New `completion-complete prompt|resource <ref> <arg:=val ...>` command asks the server for argument suggestions (MCP `completion/complete`): pass the arguments in the `prompts-get` syntax and the last one is completed. The `--proxy` server forwards completions too.
 - Support for the MCP [Tasks extension](https://modelcontextprotocol.io/extensions/tasks/overview) (`io.modelcontextprotocol/tasks`) on MCP 2026-07-28 servers: `tools-call --task`/`--detach`, `tasks-get`, `tasks-result` and `tasks-cancel` now work there too, mcpc declares the extension on every request, and a server that answers a plain `tools-call` with a task is followed to its result. `tasks-list` shows the tasks the session created, since the extension has no server-side listing. Everything keeps working unchanged on 2025-11-25 servers, where tasks are part of the core protocol. (#430)
 
 ### Changed
 
+- mcpc now trusts certificate authorities installed in the operating system's trust store (the equivalent of `NODE_USE_SYSTEM_CA=1`), so servers signed by an enterprise CA connect without extra configuration. This needs Node.js 22.19 or newer; older Node.js versions keep verifying against Node's bundled CAs only.
+- `login` now registers the OAuth client through Dynamic Client Registration by default, which is what `login --no-client-metadata-url` did before. mcpc's hosted client metadata document is used only when you pass `--client-metadata-url <url>`.
 - Updated to MCP TypeScript SDK 2.3.1. Large tool results over Streamable HTTP now arrive in a fraction of the time, and HTTP redirects are followed only within the server's own origin (plus `http` to `https` on the same host): a server that redirects elsewhere is reported with the target URL so you can connect to it directly.
 - `tools-call --detach --json` prints the whole created `Task` object (id, status, TTL, poll interval) instead of just `{ taskId, status }`. On a 2026-07-28 server that runs a detached call synchronously — the server decides per call whether to create a task — it prints the tool result instead, so check for `taskId`.
 - `tasks-cancel` on a 2026-07-28 server reports the status the server shows right after acknowledging the request (cancellation is cooperative there, so a task may still be `working` for a moment) and exits with code 2 only when the task had already finished.

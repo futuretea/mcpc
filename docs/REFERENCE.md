@@ -214,8 +214,8 @@ Options:
   --profile <name>              Profile name (default: "default")
   --scope <scopes>              OAuth scopes to request (e.g. --scope "read write")
   --grant <type>                Grant: authorization-code (default), client-credentials, id-jag
-  --client-metadata-url <url>   HTTPS URL of an OAuth CIMD (default: mcpc CIMD)
-  --no-client-metadata-url      Disable CIMD; force DCR on CIMD-capable servers
+  --client-metadata-url <url>   HTTPS URL of an OAuth CIMD (default: none, DCR)
+  --no-client-metadata-url      Disable CIMD (the default; kept for compatibility)
   --client-name <name>          Client name to register with DCR (default: mcpc)
   --client-id <id>              Pre-registered OAuth client ID (skips CIMD and DCR)
   --client-secret <secret>      Pre-registered OAuth client secret (requires --client-id)
@@ -239,16 +239,16 @@ Interactive login:
   then connect:    mcpc connect mcp.apify.com @app --profile work
 
 Client registration (how mcpc identifies itself to the server):
-  1. Client ID Metadata Documents (CIMD): the default. mcpc's hosted CIMD at
-     https://apify.github.io/mcpc/client-metadata.json identifies all mcpc
-     installs as one client. Override with --client-metadata-url <url>, or
-     disable with --no-client-metadata-url.
-  2. Pre-registration: pass --client-id (and --client-secret if issued). If the
+  1. Dynamic Client Registration (DCR): the default, for servers that expose a
+     registration_endpoint. Registers as "mcpc"; --client-name <name> registers
+     under another name.
+  2. Client ID Metadata Documents (CIMD): off unless you pass
+     --client-metadata-url <url>. mcpc's hosted document, which identifies all
+     mcpc installs as one client, is at
+     https://apify.github.io/mcpc/client-metadata.json
+  3. Pre-registration: pass --client-id (and --client-secret if issued). If the
      client's redirect URI uses localhost (e.g. localhost:3118), match it with
      --callback-host localhost --callback-port 3118.
-  3. Dynamic Client Registration (DCR): fallback when CIMD is unsupported or
-     disabled and the server exposes a registration_endpoint. Registers as
-     "mcpc"; --client-name <name> registers under another name (disables CIMD).
 
   See https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization
 

@@ -15,7 +15,7 @@ import { ClientError, isMcpError } from '../../lib/errors.js';
 import { deleteAuthProfiles } from '../../lib/auth/profiles.js';
 import { getServerHost, normalizeServerUrl, validateProfileName } from '../../lib/utils.js';
 import { closeProxy } from '../../lib/proxy.js';
-import { DEFAULT_AUTH_PROFILE, DEFAULT_CLIENT_METADATA_URL } from '../../lib/auth/oauth-utils.js';
+import { DEFAULT_AUTH_PROFILE } from '../../lib/auth/oauth-utils.js';
 import type { OAuthClientCredentialsInfo } from '../../lib/auth/keychain.js';
 // The OAuth flow modules (oauth-flow.js, client-credentials.js) statically pull
 // in the MCP SDK's auth stack, which is expensive to import — they are loaded
@@ -119,35 +119,12 @@ export async function login(
       );
     }
 
-    // Resolve the effective CIMD URL:
-    // - --client-id → no CIMD (pre-registered client)
-    // - --no-client-metadata-url or --client-name → disabled (force DCR)
-    // - --client-metadata-url <url> → user override
-    // - default → mcpc's hosted CIMD
-    let resolvedClientMetadataUrl: string | undefined;
-    if (options.clientId) {
-      resolvedClientMetadataUrl = undefined;
-    } else if (options.clientMetadataUrl === false || options.clientName !== undefined) {
-      resolvedClientMetadataUrl = undefined;
-    } else if (typeof options.clientMetadataUrl === 'string') {
-      resolvedClientMetadataUrl = options.clientMetadataUrl;
-    } else {
-      resolvedClientMetadataUrl = DEFAULT_CLIENT_METADATA_URL;
-    }
-
-    // The hosted CIMD registers only 127.0.0.1 redirect URIs, so a CIMD-capable
-    // server would reject the localhost form with a redirect_uri mismatch.
-    if (
-      options.callbackHost === 'localhost' &&
-      resolvedClientMetadataUrl === DEFAULT_CLIENT_METADATA_URL
-    ) {
-      throw new ClientError(
-        '--callback-host localhost cannot be used with the default hosted CIMD, which only ' +
-          'registers 127.0.0.1 redirect URIs. Use --client-id (pre-registered client), ' +
-          '--client-metadata-url (custom CIMD listing localhost redirect URIs), or Dynamic ' +
-          'Client Registration via --no-client-metadata-url or --client-name'
-      );
-    }
+    // Resolve the effective CIMD URL. CIMD is off unless a document is given:
+    // - --client-metadata-url <url> → that document
+    // - everything else (no flag, --no-client-metadata-url, --client-name,
+    //   --client-id) → none, so the server registers mcpc via DCR
+    const resolvedClientMetadataUrl =
+      typeof options.clientMetadataUrl === 'string' ? options.clientMetadataUrl : undefined;
 
     if (options.outputMode === 'human') {
       console.log(formatInfo(`Starting OAuth authentication for ${normalizedUrl}`));

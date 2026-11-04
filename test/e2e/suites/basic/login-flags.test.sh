@@ -31,8 +31,8 @@ assert_contains "$STDOUT" "--client-metadata-url"
 assert_contains "$STDOUT" "--client-name"
 assert_contains "$STDOUT" "Pre-registration"
 assert_contains "$STDOUT" "Client ID Metadata Documents"
-assert_contains "$STDOUT" "Dynamic Client Registration"
-# CIMD opt-out and the full default CIMD URL
+assert_contains "$STDOUT" "Dynamic Client Registration (DCR): the default"
+# CIMD is opt-in; the help still names the flag and mcpc's hosted document.
 assert_contains "$STDOUT" "--no-client-metadata-url"
 assert_contains "$STDOUT" "apify.github.io"
 assert_contains "$STDOUT" "https://apify.github.io/mcpc/client-metadata.json"
@@ -152,19 +152,35 @@ assert_contains "$STDERR" "--callback-host"
 assert_contains "$STDERR" "loopback"
 test_pass
 
-test_case "login --callback-host localhost with default hosted CIMD is rejected"
-run_mcpc login mcp.example.com --callback-host localhost
+# The hosted CIMD registers only 127.0.0.1 redirect URIs, so it is rejected only
+# when that document is actually selected. With CIMD off by default, localhost is
+# a valid callback host and the flow proceeds past flag validation.
+# No server is reachable here, so the command fails at the connection — but only
+# after flag validation. An invalid callback host would name --callback-host.
+test_case "login --callback-host localhost passes flag validation when CIMD is not used"
+run_mcpc login 127.0.0.1:1 --callback-host localhost
 assert_failure
-assert_contains "$STDERR" "127.0.0.1 redirect URIs"
-assert_contains "$STDERR" "--no-client-metadata-url"
+assert_not_contains "$STDERR" "--callback-host"
+assert_not_contains "$STDERR" "Invalid"
+test_pass
+
+# A custom CIMD document lists its own redirect URIs, so mcpc cannot know whether
+# localhost is among them; the callback host passes validation either way.
+test_case "login --callback-host localhost with a custom CIMD passes flag validation"
+run_mcpc login 127.0.0.1:1 --callback-host localhost \
+	--client-metadata-url https://apify.github.io/mcpc/client-metadata.json
+assert_failure
+assert_not_contains "$STDERR" "--callback-host"
+assert_not_contains "$STDERR" "Invalid"
 test_pass
 
 # Host comparison is case-insensitive (RFC 3986): LOCALHOST normalizes to
-# localhost, proven by it hitting the same default-CIMD guard.
+# localhost instead of being rejected as a non-loopback host.
 test_case "login --callback-host LOCALHOST is normalized to localhost"
-run_mcpc login mcp.example.com --callback-host LOCALHOST
+run_mcpc login 127.0.0.1:1 --callback-host LOCALHOST
 assert_failure
-assert_contains "$STDERR" "127.0.0.1 redirect URIs"
+assert_not_contains "$STDERR" "--callback-host"
+assert_not_contains "$STDERR" "Invalid"
 test_pass
 
 # =============================================================================
