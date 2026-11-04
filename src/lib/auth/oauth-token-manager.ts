@@ -14,6 +14,14 @@ import {
 
 const logger = createLogger('oauth-token-manager');
 
+/**
+ * The profile file lock is busy. proper-lockfile throws `ELOCKED`, and the wrapper
+ * around it keeps only the message, so both have to count.
+ */
+function isProfileLockBusy(error: unknown): boolean {
+  return error instanceof Error && error.message.includes('Lock file is already being held');
+}
+
 // Default token expiry if server doesn't specify (1 hour)
 const DEFAULT_TOKEN_EXPIRY_SECONDS = 3600;
 
@@ -194,7 +202,7 @@ export class OAuthTokenManager {
       // now. That is not an authentication failure — its result lands in the
       // keychain, and the next request picks it up. The lock error is re-wrapped
       // on its way out and keeps neither its code nor its cause, only the text.
-      if (error instanceof Error && error.message.includes('Lock file is already being held')) {
+      if (isProfileLockBusy(error)) {
         throw new AuthError(
           `Another session is refreshing the "${this.profileName}" profile. Retry the command.`
         );
@@ -289,6 +297,11 @@ export class OAuthTokenManager {
 
       return tokenResponse;
     } catch (error) {
+      // The profile lock can fail here too: persisting the rotated token takes the
+      // same lock, and a busy lock is the other session refreshing, not a rejected
+      // token. Re-wrapping it as a refresh failure is what made the caller log in
+      // again. Let it reach the handler that says so.
+      if (isProfileLockBusy(error)) throw error;
       if (error instanceof AuthError) {
         // Add re-authentication hint
         throw createReauthError(this.serverUrl, this.profileName, error.message);
