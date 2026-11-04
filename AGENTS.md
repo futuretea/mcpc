@@ -531,7 +531,7 @@ On failure, the error message includes instructions on how to login. This ensure
 - `src/lib/auth/runtime-auth-provider.ts` - Bearer-token `AuthProvider` for the bridge: wraps `OAuthTokenManager`, refreshes on HTTP 401 so the SDK transport retries once (never starts an interactive flow)
 - `src/lib/auth/oauth-flow.ts` - Orchestrates interactive OAuth flow
 - `src/lib/auth/oauth-utils.ts` - OAuth metadata discovery, callback ports, CIMD URL validation
-- `src/lib/auth/oauth-token-manager.ts` - Token validation and refresh
+- `src/lib/auth/oauth-token-manager.ts` - Token validation and refresh; cross-process refreshes use a separate lock per normalized server host and profile name, so token persistence can update `profiles.json` without re-entering its file lock
 - `src/lib/auth/token-refresh.ts` - Token refresh logic with keychain persistence
 - `src/lib/auth/client-credentials.ts` - Non-interactive client-credentials grant (`login --grant client-credentials`)
 - `src/lib/auth/id-jag.ts` - Enterprise-managed authorization (SEP-990, ID-JAG) runtime: token exchange at the IdP, ID token refresh, SDK provider (bridge-safe, no interactive code)

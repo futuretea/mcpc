@@ -193,10 +193,15 @@ export class OAuthTokenManager {
     // stored token, the request and the write of the rotated one have to happen
     // without another process doing the same in between — re-reading after the fact
     // still loses when both read the same token before either writes.
-    const { getAuthProfilesFilePath } = await import('../utils.js');
+    const { createHash } = await import('node:crypto');
+    const { join } = await import('node:path');
+    const { getMcpcHome, getServerHost } = await import('../utils.js');
     const { withFileLock } = await import('../file-lock.js');
+    const profileKey = JSON.stringify([getServerHost(this.serverUrl), this.profileName]);
+    const profileHash = createHash('sha256').update(profileKey).digest('hex');
+    const refreshLockPath = join(getMcpcHome(), `oauth-refresh-${profileHash}`);
     try {
-      return await withFileLock(getAuthProfilesFilePath(), () => this.refreshOnce(force));
+      return await withFileLock(refreshLockPath, () => this.refreshOnce(force));
     } catch (error) {
       // The lock is busy because another session is refreshing this profile right
       // now. That is not an authentication failure — its result lands in the
@@ -297,10 +302,6 @@ export class OAuthTokenManager {
 
       return tokenResponse;
     } catch (error) {
-      // The profile lock can fail here too: persisting the rotated token takes the
-      // same lock, and a busy lock is the other session refreshing, not a rejected
-      // token. Re-wrapping it as a refresh failure is what made the caller log in
-      // again. Let it reach the handler that says so.
       if (isProfileLockBusy(error)) throw error;
       if (error instanceof AuthError) {
         // Add re-authentication hint

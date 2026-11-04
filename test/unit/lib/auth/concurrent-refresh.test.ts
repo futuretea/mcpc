@@ -162,16 +162,18 @@ describe('two sessions refreshing one profile concurrently', () => {
             ? 'retry'
             : 'failed'
       );
-      // Neither outcome order nor which session wins the lock is fixed. What must
-      // not happen is one token being spent twice, or a session failing for any
-      // reason other than losing the lock.
       expect(
-        { failed: outcomes.includes('failed'), spentOneTokenTwice },
+        {
+          progressed: outcomes.includes('refreshed'),
+          failed: outcomes.includes('failed'),
+          spentOneTokenTwice,
+        },
         `presented: ${JSON.stringify(presented)}\nfirst: ${first.stderr}\nsecond: ${second.stderr}`
-      ).toEqual({ failed: false, spentOneTokenTwice: false });
+      ).toEqual({ progressed: true, failed: false, spentOneTokenTwice: false });
 
       const stored = await getAuthProfile(SERVER_URL, PROFILE);
       expect(stored?.oauthResource).toBe(SERVER_URL);
+      expect(stored?.refreshedAt).toEqual(expect.any(String));
     } finally {
       await new Promise((resolve) => server.close(resolve));
     }
