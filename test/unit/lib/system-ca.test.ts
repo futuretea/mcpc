@@ -13,7 +13,7 @@ vi.mock('node:tls', () => ({ getCACertificates, setDefaultCACertificates }));
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const BUNDLED = ['bundled-a', 'bundled-b'];
-const SYSTEM = ['enterprise-ca', 'bundled-a'];
+const SYSTEM = ['enterprise-ca'];
 
 async function loadUseSystemCa(): Promise<() => Promise<void>> {
   const mod = await import('../../../src/lib/system-ca.js');
@@ -23,7 +23,7 @@ async function loadUseSystemCa(): Promise<() => Promise<void>> {
 beforeEach(() => {
   getCACertificates.mockImplementation((type?: string) => {
     if (type === 'system') return SYSTEM;
-    if (type === 'default') return BUNDLED;
+    if (type === 'default' || type === 'bundled') return BUNDLED;
     return [];
   });
 });
@@ -41,15 +41,49 @@ describe('useSystemCa', () => {
     expect(setDefaultCACertificates).toHaveBeenCalledWith([...BUNDLED, ...SYSTEM]);
   });
 
-  it('keeps certificates added by an earlier caller', async () => {
+  it('keeps certificates added by an earlier caller and skips ones already trusted', async () => {
     const useSystemCa = await loadUseSystemCa();
     getCACertificates.mockImplementation((type?: string) =>
-      type === 'default' ? [...BUNDLED, 'extra-ca'] : SYSTEM
+      type === 'default' ? [...BUNDLED, 'extra-ca', 'enterprise-ca'] : [...SYSTEM, 'enterprise-ca']
     );
 
     await useSystemCa();
 
-    expect(setDefaultCACertificates).toHaveBeenCalledWith([...BUNDLED, 'extra-ca', ...SYSTEM]);
+    expect(setDefaultCACertificates).not.toHaveBeenCalled();
+  });
+
+  it('appends only the system certificates the default list does not have', async () => {
+    const useSystemCa = await loadUseSystemCa();
+    getCACertificates.mockImplementation((type?: string) => {
+      if (type === 'default') return [...BUNDLED, 'enterprise-ca'];
+      if (type === 'bundled') return BUNDLED;
+      return [...SYSTEM, 'second-enterprise-ca'];
+    });
+
+    await useSystemCa();
+
+    expect(setDefaultCACertificates).toHaveBeenCalledWith([
+      ...BUNDLED,
+      'enterprise-ca',
+      'second-enterprise-ca',
+    ]);
+  });
+
+  it('leaves the trust store untouched when the bundled CAs are not in the default list', async () => {
+    // --use-openssl-ca keeps the bundled Mozilla CAs out of "default" while the
+    // OpenSSL store (SSL_CERT_FILE) does the verifying. NODE_EXTRA_CA_CERTS only
+    // adds its own file, so a non-empty "default" is still not the trust in force.
+    const useSystemCa = await loadUseSystemCa();
+    getCACertificates.mockImplementation((type?: string) => {
+      if (type === 'system') return SYSTEM;
+      if (type === 'bundled') return BUNDLED;
+      if (type === 'default') return ['extra-ca'];
+      return [];
+    });
+
+    await useSystemCa();
+
+    expect(setDefaultCACertificates).not.toHaveBeenCalled();
   });
 
   it('does nothing when the OS trust store is empty', async () => {
