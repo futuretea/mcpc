@@ -15,12 +15,12 @@
   "author": "Jan Curn (@jancurn)",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/apify/mcpc.git"
+    "url": "git+https://github.com/futuretea/mcpc.git"
   },
   "bugs": {
-    "url": "https://github.com/apify/mcpc/issues"
+    "url": "https://github.com/futuretea/mcpc/issues"
   },
-  "homepage": "https://github.com/apify/mcpc",
+  "homepage": "https://github.com/futuretea/mcpc",
   "bin": {
     "mcpc": "bin/mcpc"
   },
