@@ -19,6 +19,7 @@ on:
           - patch
           - minor
           - major
+          - futuretea
       skip-windows-e2e:
         description: 'Skip Windows E2E tests (they take a long time)'
         required: false
@@ -152,55 +153,62 @@ jobs:
           CURRENT=$(node -p "require('./package.json').version")
           BUMP="${{ inputs.version }}"
 
-          # Compute the next base version according to the selected bump type
-          # e.g. 0.1.10 + minor -> 0.2.0, 0.1.10 + major -> 1.0.0, 0.1.10 + patch -> 0.1.11
-          # If already a beta, strip the pre-release suffix first
-          NEXT_BASE=$(node -p "
-            const base = '${CURRENT}'.replace(/-beta\..*/, '');
-            const v = base.split('.').map(Number);
-            if ('${BUMP}' === 'major') { v[0]++; v[1] = 0; v[2] = 0; }
-            else if ('${BUMP}' === 'minor') { v[1]++; v[2] = 0; }
-            else { v[2]++; }
-            v.join('.')
-          ")
-
-          # If current version is already a beta for this base, don't re-bump
-          CURRENT_BASE=$(node -p "'${CURRENT}'.replace(/-beta\..*/, '')")
-          if [[ "${CURRENT}" == *"-beta."* ]]; then
-            # Already on a beta — check if it matches the target base
-            # e.g. current=0.2.0-beta.1, bump=minor from 0.1.10 -> NEXT_BASE=0.2.0 -> matches, keep it
-            # e.g. current=0.1.11-beta.1, bump=minor from 0.1.10 -> NEXT_BASE=0.2.0 -> mismatch, use NEXT_BASE
-            if [[ "$CURRENT_BASE" == "$NEXT_BASE" ]]; then
-              NEXT_BASE="$CURRENT_BASE"
-            fi
+          # "futuretea" keeps the current version and appends -futuretea, so 0.7.0
+          # publishes as 0.7.0-futuretea.0 instead of bumping to 0.7.1 first. Any
+          # other bump appends -beta, as before.
+          if [[ "$BUMP" == "futuretea" ]]; then
+            PREID="futuretea"
+          else
+            PREID="beta"
           fi
 
-          echo "Base version for beta: $NEXT_BASE"
+          # The base version the suffix hangs off. A bump advances it
+          # (0.1.10 + minor -> 0.2.0, + major -> 1.0.0, + patch -> 0.1.11);
+          # "futuretea" keeps it. An existing suffix is stripped before either, and a
+          # version that is already a pre-release of the bumped base stays there
+          # (0.7.1-beta.3 + patch -> 0.7.1, not 0.7.2).
+          NEXT_BASE=$(node -p "
+            const base = '${CURRENT}'.replace(/-${PREID}\\..*/, '');
+            if ('${BUMP}' === 'futuretea') base;
+            else {
+              const v = base.split('.').map(Number);
+              if ('${BUMP}' === 'major') { v[0]++; v[1] = 0; v[2] = 0; }
+              else if ('${BUMP}' === 'minor') { v[1]++; v[2] = 0; }
+              else { v[2]++; }
+              const bumped = v.join('.');
+              // A patch bump of a version that already carries this suffix stays
+              // put: 0.7.1-beta.3 + patch -> 0.7.1. minor and major always advance,
+              // so 0.7.0-beta.1 + minor -> 0.8.0.
+              ('${BUMP}' === 'patch' && '${CURRENT}'.startsWith(base + '-${PREID}.')) ? base : bumped;
+            }
+          ")
 
-          # Query npm for existing betas of this base version
-          LATEST_BETA=$(npm view "${PKG_NAME}" versions --json 2>/dev/null \
+          echo "Base version for ${PREID}: $NEXT_BASE"
+
+          # Query npm for existing pre-releases of this base version and suffix
+          LATEST_PRE=$(npm view "${PKG_NAME}" versions --json 2>/dev/null \
             | node -p "
               const all = JSON.parse(require('fs').readFileSync(0,'utf8'));
-              const betas = (Array.isArray(all) ? all : [all])
-                .filter(v => v.startsWith('${NEXT_BASE}-beta.'))
+              const pres = (Array.isArray(all) ? all : [all])
+                .filter(v => v.startsWith('${NEXT_BASE}-${PREID}.'))
                 .sort((a,b) => {
-                  const na = Number(a.split('-beta.')[1]);
-                  const nb = Number(b.split('-beta.')[1]);
+                  const na = Number(a.split('-${PREID}.')[1]);
+                  const nb = Number(b.split('-${PREID}.')[1]);
                   return na - nb;
                 });
-              betas.length ? betas[betas.length-1] : ''
+              pres.length ? pres[pres.length-1] : ''
             " \
           ) || true
 
-          if [[ -n "$LATEST_BETA" && "$LATEST_BETA" == ${NEXT_BASE}-beta.* ]]; then
-            # Existing beta found — increment from it
-            echo "Found existing beta on npm: $LATEST_BETA — incrementing"
-            pnpm version "$LATEST_BETA" --no-git-tag-version --allow-same-version
-            pnpm version prerelease --preid=beta --no-git-tag-version
+          if [[ -n "$LATEST_PRE" && "$LATEST_PRE" == ${NEXT_BASE}-${PREID}.* ]]; then
+            # One already exists — increment its counter
+            echo "Found existing pre-release on npm: $LATEST_PRE — incrementing"
+            pnpm version "$LATEST_PRE" --no-git-tag-version --allow-same-version
+            pnpm version prerelease --preid="$PREID" --no-git-tag-version
           else
-            # No beta yet — start at beta.0
-            echo "No existing beta for ${NEXT_BASE} — creating ${NEXT_BASE}-beta.0"
-            pnpm version "${NEXT_BASE}-beta.0" --no-git-tag-version --allow-same-version
+            # First one — start the counter at 0
+            echo "No existing ${PREID} for ${NEXT_BASE} — creating ${NEXT_BASE}-${PREID}.0"
+            pnpm version "${NEXT_BASE}-${PREID}.0" --no-git-tag-version --allow-same-version
           fi
 
           NEW_VERSION=$(node -p "require('./package.json').version")

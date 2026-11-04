@@ -22,7 +22,7 @@ SKIP_MACOS_E2E="false"
 # Parse arguments
 while [[ $# -gt 0 ]]; do
   case $1 in
-    major|minor|patch)
+    major|minor|patch|futuretea)
       VERSION_TYPE="$1"
       shift
       ;;
@@ -39,27 +39,30 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     -h|--help)
-      echo "Usage: ./scripts/publish.sh [major|minor|patch] [--pre-release] [--skip-windows-e2e] [--skip-macos-e2e]"
+      echo "Usage: ./scripts/publish.sh [major|minor|patch|futuretea] [--pre-release] [--skip-windows-e2e] [--skip-macos-e2e]"
       echo ""
       echo "Triggers the release.yml GitHub Actions workflow."
       echo ""
       echo "Options:"
       echo "  major|minor|patch   Version bump type (default: patch)"
-      echo "  --pre-release       Create a pre-release (beta) instead of a stable release"
+      echo "  futuretea           Do not bump. With --pre-release, append -futuretea to the"
+      echo "                      current version (0.7.0 → 0.7.0-futuretea.0)"
+      echo "  --pre-release       Create a pre-release instead of a stable release"
       echo "  --skip-windows-e2e  Skip the slow Windows E2E tests (included by default)"
       echo "  --skip-macos-e2e    Skip the slow macOS E2E tests (included by default)"
       echo ""
       echo "Examples:"
       echo "  npm run release                      # patch release"
       echo "  npm run release:minor                # minor release"
-      echo "  npm run release:pre                  # patch pre-release"
+      echo "  npm run release:pre                  # patch pre-release (0.7.1-beta.0)"
       echo "  npm run release:pre -- minor         # minor pre-release"
+      echo "  npm run release:pre -- futuretea     # no bump (0.7.0-futuretea.0)"
       echo "  npm run release -- --skip-windows-e2e  # patch release, skip Windows E2E"
       exit 0
       ;;
     *)
       echo -e "${RED}Unknown option: $1${NC}"
-      echo "Usage: ./scripts/publish.sh [major|minor|patch] [--pre-release] [--skip-windows-e2e] [--skip-macos-e2e]"
+      echo "Usage: ./scripts/publish.sh [major|minor|patch|futuretea] [--pre-release] [--skip-windows-e2e] [--skip-macos-e2e]"
       exit 1
       ;;
   esac
