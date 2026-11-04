@@ -14,7 +14,8 @@ NC='\033[0m'
 # Defaults
 VERSION_TYPE="patch"
 RELEASE_TYPE="release"
-RELEASE_BRANCH="main"
+# Upstream releases ship from main; the @futuretea/mcpc fork ships from futuretea.
+RELEASE_BRANCHES="main futuretea"
 SKIP_WINDOWS_E2E="false"
 SKIP_MACOS_E2E="false"
 
@@ -80,9 +81,8 @@ echo -e "${GREEN}✓ GitHub CLI authenticated${NC}"
 
 # Check branch
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
-if [[ "$RELEASE_TYPE" == "release" && "$BRANCH" != "$RELEASE_BRANCH" ]]; then
-  echo -e "${RED}❌ Releases must be from '$RELEASE_BRANCH' branch (current: $BRANCH).${NC}"
-  echo "   Switch to main: git checkout $RELEASE_BRANCH"
+if [[ "$RELEASE_TYPE" == "release" && " $RELEASE_BRANCHES " != *" $BRANCH "* ]]; then
+  echo -e "${RED}❌ Releases must be from one of: $RELEASE_BRANCHES (current: $BRANCH).${NC}"
   exit 1
 fi
 echo -e "${GREEN}✓ On branch: $BRANCH${NC}"
