@@ -494,7 +494,10 @@ export async function connectSession(
     // Fallback: check error message for auth patterns (error may have been wrapped
     // as ClientError/ServerError during bridge IPC serialization)
     if (detailsError instanceof Error && isAuthenticationError(detailsError.message)) {
-      throw createServerAuthError(serverConfig.url || target, { sessionName: name });
+      throw createServerAuthError(serverConfig.url || target, {
+        sessionName: name,
+        ...(profileName && { profileName }),
+      });
     }
 
     // Non-auth failure: session was created but server didn't respond properly.

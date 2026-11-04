@@ -15,6 +15,7 @@ import {
   getLogsDir,
   isValidHttpUrl,
   normalizeServerUrl,
+  sameOAuthResource,
   getServerHost,
   isValidSessionName,
   generateSessionName,
@@ -219,6 +220,39 @@ describe('isValidHttpUrl', () => {
     expect(isValidHttpUrl('file:///path')).toBe(false);
     expect(isValidHttpUrl('ftp://example.com')).toBe(false);
     expect(isValidHttpUrl('')).toBe(false);
+  });
+});
+
+describe('sameOAuthResource', () => {
+  it('treats a trailing slash as the same resource', () => {
+    expect(
+      sameOAuthResource(
+        'https://obot.example.test/mcp-connect/ms1btctr',
+        'https://obot.example.test/mcp-connect/ms1btctr/'
+      )
+    ).toBe(true);
+  });
+
+  it('ignores scheme and host case', () => {
+    expect(
+      sameOAuthResource(
+        'HTTPS://Obot.Example.Test/mcp-connect/ms1btctr',
+        'https://obot.example.test/mcp-connect/ms1btctr'
+      )
+    ).toBe(true);
+  });
+
+  it('treats a different path as a different authorization server', () => {
+    expect(
+      sameOAuthResource(
+        'https://obot.example.test/mcp-connect/ms1btctr',
+        'https://obot.example.test/mcp-connect/ms1ttjwq'
+      )
+    ).toBe(false);
+  });
+
+  it('returns false when either value is not a URL', () => {
+    expect(sameOAuthResource('not a url', 'https://obot.example.test/mcp')).toBe(false);
   });
 });
 

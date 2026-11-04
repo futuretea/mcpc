@@ -228,6 +228,11 @@ With no auth flags, mcpc uses the `default` profile if one exists, otherwise it
 connects anonymously. Use `--no-profile` to force an anonymous connection, or
 `--profile <name>` to require a specific one.
 
+A profile belongs to the server it logged in to. Two servers on one host that
+authorize separately (the URL path differs, e.g. Obot's `/mcp-connect/<id>`)
+each need their own profile name: `connect` refuses a profile logged in for the
+other server, and `login` will not overwrite it. Log in again with a new name.
+
 ## Proxy for AI isolation
 
 Expose an authenticated session as a local MCP server, so sandboxed AI code can use it

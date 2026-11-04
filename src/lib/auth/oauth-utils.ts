@@ -6,7 +6,7 @@
 import { createLogger } from '../logger.js';
 import { AuthError, ClientError } from '../errors.js';
 import { proxyFetch } from '../proxy.js';
-import { normalizeServerUrl } from '../utils.js';
+import { normalizeServerUrl, sameOAuthResource } from '../utils.js';
 
 const logger = createLogger('oauth-utils');
 
@@ -588,6 +588,33 @@ export function createReauthError(
       ? `mcpc login ${serverUrl}`
       : `mcpc login ${serverUrl} --profile ${profileName}`;
   return new AuthError(`${message}. Please re-authenticate with: ${command}`);
+}
+
+/**
+ * Refuse a profile whose recorded resource is a different MCP server than the one
+ * being connected. Profiles are keyed by host, so two authorization servers on one
+ * host (Obot serves one per `/mcp-connect/<id>`) otherwise share a profile, and a
+ * refresh then presents one's rotating refresh token at the other's server.
+ * A profile without a recorded resource (written before mcpc stored one) is used
+ * as before.
+ *
+ * @returns An AuthError (exit code 4) naming a fresh profile for this server, or
+ *          undefined when the profile may be used.
+ */
+export function profileResourceMismatch(
+  serverUrl: string,
+  profile: { name: string; oauthResource?: string }
+): AuthError | undefined {
+  if (!profile.oauthResource || sameOAuthResource(profile.oauthResource, serverUrl)) {
+    return undefined;
+  }
+  return new AuthError(
+    `Authentication profile "${profile.name}" belongs to ${profile.oauthResource}, ` +
+      `not ${serverUrl}. A profile is not shared between authorization servers on ` +
+      `the same host.\n\n` +
+      `Log in to this server under its own profile name:\n` +
+      `  mcpc login ${serverUrl} --profile <new-name>`
+  );
 }
 
 /**

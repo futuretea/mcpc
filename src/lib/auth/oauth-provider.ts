@@ -262,7 +262,10 @@ export class OAuthProvider implements OAuthClientProvider {
     let profile = this._authProfile || (await getAuthProfile(this.serverUrl, this.profileName));
 
     if (!profile) {
-      // Create new profile
+      // Create new profile. A profile of this name may already exist for another
+      // authorization server on the same host; overwriting it would hand that
+      // server's refresh token to this one. updateProfileMetadata runs after the
+      // token exchange, so the check has to happen before the login starts.
       profile = {
         name: this.profileName,
         serverUrl: this.serverUrl,

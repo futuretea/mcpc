@@ -15,12 +15,14 @@ import { getServerHost } from '../utils.js';
 import { AuthError, ClientError } from '../errors.js';
 import { createLogger } from '../logger.js';
 import { describeAuthError } from './client-credentials.js';
+import { getAuthProfile } from './profiles.js';
 import { removeKeychainOAuthClientInfo, storeKeychainOAuthClientInfo } from './keychain.js';
 import type { AuthProfile } from '../types.js';
 import {
   MCPC_OAUTH_CALLBACK_PORTS,
   validateClientMetadataUrl,
   getOAuthServerUrl,
+  profileResourceMismatch,
 } from './oauth-utils.js';
 import { renderAuthPage } from './auth-page.js';
 
@@ -711,6 +713,26 @@ export async function performOAuthFlow(
   const redirectUrl = `http://${callbackHost || '127.0.0.1'}:${port}/callback`;
 
   logger.debug(`Using redirect URL: ${redirectUrl}`);
+
+  // A profile of this name may already hold another authorization server's refresh
+  // token: profiles are stored per host, and this host can serve several. Refuse
+  // before anything is deleted from the keychain. The resource this login will
+  // record is not known until the server's metadata is read, so the server URL
+  // stands in for it — it is the URL the resource indicator is derived from.
+  const existingProfile = await getAuthProfile(normalizedServerUrl, profileName);
+  const clash = existingProfile
+    ? profileResourceMismatch(normalizedServerUrl, existingProfile)
+    : undefined;
+  if (clash) {
+    throw new ClientError(
+      `Authentication profile "${profileName}" already belongs to ` +
+        `${existingProfile?.oauthResource}. Logging in to ${normalizedServerUrl} ` +
+        `would replace its credentials.\n\n` +
+        `Use another profile name, or remove it first:\n` +
+        `  mcpc login ${normalizedServerUrl} --profile <new-name>\n` +
+        `  mcpc logout ${existingProfile?.oauthResource} --profile ${profileName}`
+    );
+  }
 
   // Validate --client-metadata-url (CIMD) early so users get a clear error
   if (clientCredentials?.clientMetadataUrl) {

@@ -50,6 +50,7 @@ import {
   readKeychainProxyBearerToken,
 } from './auth/keychain.js';
 import { getAuthProfile } from './auth/profiles.js';
+import { profileResourceMismatch } from './auth/oauth-utils.js';
 import { getWallet } from './wallets.js';
 
 const logger = createLogger('bridge-manager');
@@ -61,7 +62,7 @@ const logger = createLogger('bridge-manager');
  */
 async function classifyAndThrowSessionError(
   sessionName: string,
-  session: { server: ServerConfig; mcpSessionId?: string | undefined },
+  session: { server: ServerConfig; mcpSessionId?: string | undefined; profileName?: string },
   errorMessage: string,
   originalError?: Error
 ): Promise<void> {
@@ -83,6 +84,7 @@ async function classifyAndThrowSessionError(
     const target = session.server.url || session.server.command || sessionName;
     throw createServerAuthError(target, {
       sessionName,
+      ...(session.profileName && { profileName: session.profileName }),
       ...(originalError && { originalError }),
     });
   }
@@ -586,6 +588,11 @@ export async function loadAuthCredentials(
     logger.debug(`Looking up auth profile ${profileName} for ${serverUrl}`);
 
     const profile = await getAuthProfile(serverUrl, profileName);
+    // The last gate before the refresh token leaves the machine. connect and
+    // restart check too, but a bridge restarted after a crash does not pass
+    // through them, and a profile is shared by every server on its host.
+    const mismatch = profile ? profileResourceMismatch(serverUrl, profile) : undefined;
+    if (mismatch) throw mismatch;
     if (profile?.oauthGrant === 'id_jag') {
       // Enterprise-managed authorization: load the stored IdP + client material so
       // the bridge can build the SDK cross-app-access provider.
@@ -855,7 +862,10 @@ export async function ensureBridgeReady(
 
   if (session.status === 'unauthorized') {
     const target = session.server.url || session.server.command || sessionName;
-    throw createServerAuthError(target, { sessionName });
+    throw createServerAuthError(target, {
+      sessionName,
+      ...(session.profileName && { profileName: session.profileName }),
+    });
   }
 
   if (session.status === 'expired') {

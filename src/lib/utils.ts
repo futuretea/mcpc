@@ -317,6 +317,38 @@ export function normalizeServerUrl(str: string): string {
  * - `https://example.com:8443` → `example.com:8443`
  * - `http://localhost:3000` → `localhost:3000`
  */
+/**
+ * Whether two MCP server URLs name the same resource for an OAuth profile.
+ *
+ * Profiles are stored per host, but one host can front several authorization
+ * servers that differ only in path (Obot serves one per `/mcp-connect/<id>`).
+ * A profile records the resource it authenticated for; comparing it with the
+ * server being connected ignores the scheme's case, the host's case and one
+ * trailing slash, and nothing else — a different path is a different server.
+ * Returns false when either value is not a URL.
+ */
+export function sameOAuthResource(a: string, b: string): boolean {
+  const canonical = (value: string): string | undefined => {
+    let url: URL;
+    try {
+      url = new URL(value);
+    } catch {
+      return undefined;
+    }
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined;
+    url.hostname = url.hostname.toLowerCase();
+    url.username = '';
+    url.password = '';
+    url.hash = '';
+    if (url.pathname.length > 1 && url.pathname.endsWith('/')) {
+      url.pathname = url.pathname.slice(0, -1);
+    }
+    return url.toString();
+  };
+  const left = canonical(a);
+  return left !== undefined && left === canonical(b);
+}
+
 export function getServerHost(urlString: string): string {
   const url = new URL(normalizeServerUrl(urlString));
   const hostname = url.hostname.toLowerCase();

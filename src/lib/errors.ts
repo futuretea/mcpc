@@ -113,15 +113,22 @@ export function isAuthenticationError(errorMessage: string): boolean {
  */
 export function createServerAuthError(
   target: string,
-  options?: { sessionName?: string; originalError?: Error }
+  options?: { sessionName?: string; profileName?: string; originalError?: Error }
 ): AuthError {
+  // Name the profile the session is bound to. A host holds several profiles, and
+  // logging in without --profile writes the "default" one, which is not necessarily
+  // the one this session refreshes with.
+  const login =
+    options?.profileName && options.profileName !== 'default'
+      ? `mcpc login ${target} --profile ${options.profileName}`
+      : `mcpc login ${target}`;
   let hint: string;
   if (options?.sessionName) {
     hint =
       `Try restarting the session first (refreshes the token):\n` +
       `  mcpc ${options.sessionName} restart\n\n` +
       `If the error persists, re-authenticate:\n` +
-      `  mcpc login ${target}\n` +
+      `  ${login}\n` +
       `  mcpc ${options.sessionName} restart\n\n` +
       `For details, run: mcpc ${options.sessionName} logs`;
   } else {

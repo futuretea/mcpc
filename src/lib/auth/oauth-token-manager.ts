@@ -180,7 +180,41 @@ export class OAuthTokenManager {
   }
 
   private async doRefreshAccessToken(force: boolean): Promise<OAuthTokenResponse> {
-    // Reload tokens from keychain before refresh (handles token rotation by other processes)
+    // One refresh at a time across every process sharing the profile. A rotating
+    // authorization server accepts a refresh token exactly once, and the read of the
+    // stored token, the request and the write of the rotated one have to happen
+    // without another process doing the same in between — re-reading after the fact
+    // still loses when both read the same token before either writes.
+    const { getAuthProfilesFilePath } = await import('../utils.js');
+    const { withFileLock } = await import('../file-lock.js');
+    try {
+      return await withFileLock(getAuthProfilesFilePath(), () => this.refreshOnce(force));
+    } catch (error) {
+      // The lock is busy because another session is refreshing this profile right
+      // now. That is not an authentication failure — its result lands in the
+      // keychain, and the next request picks it up. The lock error is re-wrapped
+      // on its way out and keeps neither its code nor its cause, only the text.
+      if (error instanceof Error && error.message.includes('Lock file is already being held')) {
+        throw new AuthError(
+          `Another session is refreshing the "${this.profileName}" profile. Retry the command.`
+        );
+      }
+      throw error;
+    }
+  }
+
+  private async refreshOnce(force: boolean): Promise<OAuthTokenResponse> {
+    if (await this.applyStoredTokens(force)) {
+      return { access_token: this.accessToken as string, token_type: 'Bearer' };
+    }
+    return await this.requestRefresh();
+  }
+
+  /**
+   * Adopt whatever the keychain holds now. Returns true when it holds an access
+   * token that is still valid, so no request needs to be sent.
+   */
+  private async applyStoredTokens(force: boolean): Promise<boolean> {
     if (this.onBeforeRefresh) {
       logger.debug('Reloading tokens from storage before refresh...');
       const latestTokens = await this.onBeforeRefresh();
@@ -203,15 +237,15 @@ export class OAuthTokenManager {
             this.accessToken = latestTokens.accessToken;
             this.accessTokenExpiresAt = latestTokens.accessTokenExpiresAt;
             // Return early - no need to refresh, we have a valid token
-            return {
-              access_token: this.accessToken,
-              token_type: 'Bearer',
-            };
+            return true;
           }
         }
       }
     }
+    return false;
+  }
 
+  private async requestRefresh(): Promise<OAuthTokenResponse> {
     if (!this.refreshToken) {
       throw createReauthError(
         this.serverUrl,

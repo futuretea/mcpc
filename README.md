@@ -479,9 +479,9 @@ credentials that allow you to:
 
 Key concepts:
 
-- **Authentication profile**: Named set of OAuth credentials for a specific server (stored in `~/.mcpc/profiles.json` + OS keychain)
+- **Authentication profile**: Named set of OAuth credentials for a specific server (stored in `~/.mcpc/profiles.json` + OS keychain). A profile belongs to the server it logged in to: two servers on one host that authorize separately — the URL path differs, as with Obot's `/mcp-connect/<id>` endpoints — each need their own profile name. `connect` refuses a profile logged in for the other server, and `login` will not overwrite it.
 - **Session**: Active connection to a server that may reference an authentication profile (stored in `~/.mcpc/sessions.json`)
-- **Default profile**: When `--profile` is not specified, `mcpc` uses the authentication profile named `default`
+- **Default profile**: When `--profile` is not specified, `mcpc` uses the authentication profile named `default`, unless that profile was logged in for a different server on the same host, in which case the connection goes out unauthenticated.
 
 **Example:**
 

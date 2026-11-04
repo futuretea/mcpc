@@ -124,6 +124,19 @@ export async function getValidAccessTokenFromKeychain(
     accessToken: tokens.accessToken,
     ...(tokens.expiresAt !== undefined && { accessTokenExpiresAt: tokens.expiresAt }),
     onTokenRefresh: createPersistenceCallback(serverUrl, profileName, profile, tokens),
+    // Two sessions share one profile, and a rotating authorization server accepts
+    // a refresh token exactly once. The bridge reloads the keychain before it
+    // refreshes; this path must too, or the session that refreshes second sends
+    // the token the first one already replaced and is logged out.
+    onBeforeRefresh: async () => {
+      const latest = await readKeychainOAuthTokenInfo(serverUrl, profileName);
+      if (!latest) return undefined;
+      return {
+        ...(latest.refreshToken !== undefined && { refreshToken: latest.refreshToken }),
+        ...(latest.accessToken !== undefined && { accessToken: latest.accessToken }),
+        ...(latest.expiresAt !== undefined && { accessTokenExpiresAt: latest.expiresAt }),
+      };
+    },
   });
 
   // Get valid token (will refresh and persist if expired)

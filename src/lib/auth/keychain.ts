@@ -225,6 +225,13 @@ async function probeKeychain(EntryClass: EntryConstructor): Promise<boolean> {
 let _probePromise: Promise<void> | null = null;
 
 async function ensureProbed(): Promise<void> {
+  // Tests that spawn a child process set this so both processes store credentials
+  // in the file under MCPC_HOME_DIR. The OS keychain is shared across homes, so a
+  // parent that probed it first would write where the child cannot read.
+  if (process.env.MCPC_FORCE_FILE_KEYCHAIN === '1') {
+    keychainAvailable = false;
+    return;
+  }
   if (keychainAvailable !== null) return;
   if (_probePromise === null) {
     _probePromise = (async () => {

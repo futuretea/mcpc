@@ -710,6 +710,10 @@ ${chalk.bold('Interactive login:')}
   named profile:   mcpc login mcp.apify.com --profile work
   then connect:    mcpc connect mcp.apify.com @app --profile work
 
+  A profile belongs to the server it logged in to. Two servers on one host
+  that authorize separately (the URL path differs) each need their own
+  profile name; connect refuses a profile logged in for the other one.
+
 ${chalk.bold('Client registration (how mcpc identifies itself to the server):')}
   1. Dynamic Client Registration (DCR): the default, for servers that expose a
      registration_endpoint. Registers as "mcpc"; --client-name <name> registers

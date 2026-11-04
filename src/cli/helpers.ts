@@ -12,7 +12,7 @@ import { setVerbose, createLogger } from '../lib/logger.js';
 import { loadConfig, getServerConfig, validateServerConfig } from '../lib/config.js';
 import { getAuthProfile } from '../lib/auth/profiles.js';
 import { formatSessionLine } from './output.js';
-import { DEFAULT_AUTH_PROFILE } from '../lib/auth/oauth-utils.js';
+import { DEFAULT_AUTH_PROFILE, profileResourceMismatch } from '../lib/auth/oauth-utils.js';
 import { parseHeaderFlags } from './parser.js';
 
 const logger = createLogger('cli');
@@ -47,6 +47,10 @@ export async function resolveAuthProfile(
           `  mcpc login ${target} --profile ${specifiedProfile}`
       );
     }
+    // The profile is stored per host; it must also be the one logged in for this
+    // server, not for another authorization server on the same host.
+    const mismatch = profileResourceMismatch(serverUrl, profile);
+    if (mismatch) throw mismatch;
     return specifiedProfile;
   }
 
@@ -54,6 +58,16 @@ export async function resolveAuthProfile(
   // Non-default profiles require explicit --profile flag
   const defaultProfile = await getAuthProfile(serverUrl, DEFAULT_AUTH_PROFILE);
   if (defaultProfile) {
+    // A default profile logged in for a different server on this host is not this
+    // server's credentials. Skip it instead of failing: the connection then goes
+    // out unauthenticated, the same as when no default profile exists.
+    if (profileResourceMismatch(serverUrl, defaultProfile)) {
+      logger.debug(
+        `Default auth profile for ${host} belongs to ${defaultProfile.oauthResource}; ` +
+          `not using it for ${serverUrl}`
+      );
+      return undefined;
+    }
     logger.debug(`Using default auth profile for ${host}`);
     return DEFAULT_AUTH_PROFILE;
   }
