@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, futuretea]
   pull_request:
 
 jobs:
