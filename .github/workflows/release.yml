@@ -99,7 +99,7 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       - name: Install pnpm and dependencies
-        uses: apify/actions/pnpm-install@v1.1.2
+        uses: ./.github/actions/pnpm-install
 
       - name: Check dependency age
         # Supply-chain gate: pnpm's `minimumReleaseAge` only applies when resolving new

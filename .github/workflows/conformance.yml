@@ -73,7 +73,7 @@ jobs:
 
       - name: Install pnpm and dependencies
         if: ${{ (inputs.scenario == '' && matrix.scenario != 'sse-retry') || inputs.scenario == matrix.scenario }}
-        uses: apify/actions/pnpm-install@v1.1.2
+        uses: ./.github/actions/pnpm-install
 
       - name: Build
         if: ${{ (inputs.scenario == '' && matrix.scenario != 'sse-retry') || inputs.scenario == matrix.scenario }}
@@ -124,7 +124,7 @@ jobs:
         with:
           node-version: 24
       - name: Install pnpm and dependencies
-        uses: apify/actions/pnpm-install@v1.1.2
+        uses: ./.github/actions/pnpm-install
       - name: Build
         run: pnpm run build
       - name: Run proxy server conformance

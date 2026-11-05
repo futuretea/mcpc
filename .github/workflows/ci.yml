@@ -23,7 +23,7 @@ jobs:
           node-version: ${{ matrix.node-version }}
 
       - name: Install pnpm and dependencies
-        uses: apify/actions/pnpm-install@v1.1.2
+        uses: ./.github/actions/pnpm-install
 
       - name: Lint
         run: pnpm run lint
@@ -50,7 +50,7 @@ jobs:
           node-version: 24
 
       - name: Install pnpm and dependencies
-        uses: apify/actions/pnpm-install@v1.1.2
+        uses: ./.github/actions/pnpm-install
 
       - name: Build
         run: pnpm run build
@@ -77,7 +77,7 @@ jobs:
           node-version: 24
 
       - name: Install pnpm and dependencies
-        uses: apify/actions/pnpm-install@v1.1.2
+        uses: ./.github/actions/pnpm-install
 
       - name: Build
         run: pnpm run build
@@ -112,7 +112,7 @@ jobs:
           bun-version: ${{ matrix.bun-version }}
 
       - name: Install pnpm and dependencies
-        uses: apify/actions/pnpm-install@v1.1.2
+        uses: ./.github/actions/pnpm-install
 
       - name: Build
         run: pnpm run build
